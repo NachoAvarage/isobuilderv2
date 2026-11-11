@@ -1,0 +1,69 @@
+
+name: Build LiquidOS ISO
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'build.sh'
+      - 'config/**'
+      - 'hooks/**'
+      - 'package-lists/**'
+      - '.github/workflows/build-iso.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build bootable ISO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/share/swift
+          df -h /
+
+      - name: Build LiquidOS
+        run: sudo bash ./build.sh
+
+      - name: Find ISO and generate checksum
+        shell: bash
+        run: |
+          mkdir -p output
+
+          mapfile -t ISOS < <(
+            find . -type f -name '*.iso' \
+              -not -path './.git/*' \
+              -not -path './output/*'
+          )
+
+          if [ "${#ISOS[@]}" -eq 0 ]; then
+            echo "ERROR: No ISO was generated."
+            exit 1
+          fi
+
+          cp "${ISOS[0]}" output/LiquidOS-amd64.iso
+          cd output
+          sha256sum LiquidOS-amd64.iso > SHA256SUMS.txt
+
+          ls -lh
+
+      - name: Upload bootable ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiquidOS-amd64-ISO
+          path: |
+            output/LiquidOS-amd64.iso
+            output/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
