@@ -1,0 +1,16 @@
+#!/bin/bash
+set -Eeuo pipefail
+
+# Ensure the live session has a predictable, non-root desktop account.
+if ! getent group sudo >/dev/null; then
+  groupadd sudo
+fi
+# live-config creates the configured username at boot; add a sudoers group rule.
+cat > /etc/sudoers.d/liquidos-live <<'EOF'
+%sudo ALL=(ALL:ALL) ALL
+EOF
+chmod 0440 /etc/sudoers.d/liquidos-live
+
+# Enable common desktop services.
+systemctl enable NetworkManager.service || true
+systemctl enable sddm.service || true
